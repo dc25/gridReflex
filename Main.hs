@@ -3,12 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 import Reflex
 import Reflex.Dom
-import Control.Monad.Random (RandomGen, Rand, runRand, getStdGen, getRandomR)
-import Control.Monad.Trans (liftIO)
-import Control.Monad.State (State, state, runState)
-import Data.Map as DM (Map, fromList, elems, lookup, findWithDefault, insert, mapWithKey, (!))
+import Data.Map as DM (Map, fromList, elems, findWithDefault, insert , (!))
 import Data.Text (Text, pack)
-import Data.Functor.Misc (dmapToMap, mapWithFunctorToDMap)
 import Data.Traversable (forM)
 
 type Pos = (Int, Int)
@@ -22,21 +18,17 @@ w =  20
 h :: Int
 h = 10
 
-indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
-
-cellSize :: Int
 cellSize = 20
+
+indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
 
 initBoard :: [Pos] -> Board
 initBoard positions = 
     let cells = repeat False
     in fromList (zip positions cells)
 
-getColor :: Bool -> String
-getColor flagged = if flagged then "#909090" else "#AAAAAA"
-
 cellAttrs :: Bool -> Map Text Text
-cellAttrs cell = 
+cellAttrs flagged = 
     let size = 0.9
         placement = 0.5 - (size/2.0)
 
@@ -44,7 +36,7 @@ cellAttrs cell =
                 , ( "y",            pack $ show placement)
                 , ( "width",        pack $ show size)
                 , ( "height",       pack $ show size)
-                , ( "style",        pack $ "fill:" ++ getColor cell)
+                , ( "style",        pack $ "fill:" ++ (if flagged then "grey" else "blue"))
                 ] 
 
 groupAttrs :: Pos -> Map Text Text
