@@ -22,10 +22,13 @@ cellSize = 20
 
 indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
 
+
 initBoard :: [Pos] -> Board
 initBoard positions = 
     let cells = repeat False
     in fromList (zip positions cells)
+
+initialBoard  = initBoard indices
 
 cellAttrs :: Bool -> Map Text Text
 cellAttrs flagged = 
@@ -83,23 +86,21 @@ updateBoard msg oldBoard =
 showBoard2 :: forall t m. MonadWidget t m => m ()
 showBoard2 = do 
     rec 
-        let  initial  = initBoard indices
-        board <- foldDyn updateBoard initial (leftmost ev)
+        board <- foldDyn updateBoard initialBoard (leftmost ev)
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ forM indices $ showCell2 board
     return ()
 
 showBoard :: MonadWidget t m => m ()
 showBoard = do
-    let initial = initBoard [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
     rec 
         let pick = switch $ (leftmost . elems) <$> current ev
             updateEv = fmap reactToPick pick
-            eventMap = listHoldWithKey initial updateEv showCell
+            eventMap = listHoldWithKey initialBoard updateEv showCell
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) eventMap
     return ()
 
 main :: IO ()
-main = mainWidget showBoard2
+main = mainWidget showBoard
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
