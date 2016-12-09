@@ -11,11 +11,7 @@ import Data.Text (Text, pack)
 import Data.Functor.Misc (dmapToMap, mapWithFunctorToDMap)
 import Data.Traversable (forM)
 
-data Cell = Cell { mined :: Bool 
-                 , exposed :: Bool
-                 , flagged :: Bool
-                 , mines :: Int
-                 } deriving Show
+data Cell = Cell { flagged :: Bool } 
 
 type Pos = (Int, Int)
 type Board = Map Pos Cell
@@ -31,23 +27,21 @@ h = 10
 cellSize :: Int
 cellSize = 20
 
-mkCell :: RandomGen g => Rand g Cell
-mkCell = do
-    t <- getRandomR (0.0::Float, 1.0)
-    return $ Cell (t < 0.201) False False 0
+mkCell :: Cell
+mkCell = Cell False 
 
-initBoard :: RandomGen g => [Pos] -> Rand g Board
-initBoard positions = do
-    cells <- sequence $ repeat mkCell
-    return $ fromList (zip positions cells)
+initBoard :: [Pos] -> Board
+initBoard positions = 
+    let cells = repeat mkCell
+    in fromList (zip positions cells)
 
-mkBoard :: RandomGen g => Rand g Board
-mkBoard = do
+mkBoard :: Board
+mkBoard = 
     let positions = [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
-    initBoard positions
+    in initBoard positions
 
 getColor :: Cell -> String
-getColor (Cell _ exposed _ _) = if exposed then "#909090" else "#AAAAAA"
+getColor (Cell flagged) = if flagged then "#909090" else "#AAAAAA"
 
 cellAttrs :: Cell -> Map Text Text
 cellAttrs cell = 
@@ -59,7 +53,6 @@ cellAttrs cell =
                 , ( "width",        pack $ show size)
                 , ( "height",       pack $ show size)
                 , ( "style",        pack $ "fill:" ++ getColor cell)
-                , ("oncontextmenu", "return false;")
                 ] 
 
 groupAttrs :: Pos -> Map Text Text
@@ -80,34 +73,21 @@ showFlag pos = do
     let flagAttrs = 
             fromList [ ( "points", "0.20,0.40 0.70,0.55 0.70,0.25" )
                      , ( "style",        "fill:red")
-                     , ("oncontextmenu", "return false;")
                      ] 
 
     (fEl,_) <- elSvgns "polygon" (constDyn flagAttrs ) $ return ()
 
-    let poleAttrs = 
-            fromList [ ( "x1", "0.70" )
-                     , ( "y1", "0.25" )
-                     , ( "x2", "0.70" )
-                     , ( "y2", "0.85" )
-                     , ( "stroke-width", ".07")
-                     , ( "stroke", "black")
-                     , ("oncontextmenu", "return false;")
-                     ] 
-
-    (pEl,_) <- elSvgns "line" (constDyn poleAttrs ) $ return ()
-
-    return [fEl, pEl]
+    return [fEl]
 
 showCellDetail :: MonadWidget t m => Pos -> Cell -> m [El t]
-showCellDetail pos c@(Cell mined exposed flagged mines) = 
-    case (  mined, exposed, flagged, 0 == mines) of
-         (      _,       _,    True,     _) -> showFlag pos 
-         (      _,       _,       _,     _) -> return []
+showCellDetail pos c@(Cell flagged ) = 
+    case (  flagged ) of
+         (  True ) -> showFlag pos 
+         (      _ ) -> return []
 
 mouseEv :: Reflex t => Pos -> El t -> [Event t Msg]
 mouseEv pos el = 
-    let r_rEv = RightPick pos <$ domEvent Contextmenu el
+    let r_rEv = RightPick pos <$ domEvent Click el
     in [r_rEv]
 
 showCell :: MonadWidget t m => Pos -> Cell -> m (Event t Msg)
@@ -125,9 +105,7 @@ showAndReturnCell pos c = do
 fromPick :: Msg -> Board ->[(Pos, Maybe Cell)]
 fromPick (RightPick pos ) board = 
     let c = board ! pos
-    in if exposed c
-       then [] -- can't flag a cell that's already exposed.
-       else [(pos, Just c {flagged=not $ flagged c})]
+    in [(pos, Just c {flagged=not $ flagged c})]
 
 reactToPick :: (Board,Msg) -> Map Pos (Maybe Cell)
 reactToPick (b,c) = fromList $ fromPick c b
@@ -137,12 +115,11 @@ boardAttrs = fromList
                  [ ("width" , pack $ show $ w * cellSize)
                  , ("height", pack $ show $ h * cellSize)
                  , ("style" , "border:solid; margin:8em")
-                 , ("oncontextmenu", "return false;")
                  ]
 
 showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Cell) -> Pos -> m (Event t Msg)
 showCell2 dBoard pos = do
-    let dCell = fmap (findWithDefault (Cell False False False 0) pos) dBoard
+    let dCell = fmap (findWithDefault (Cell False ) pos) dBoard
     ev2 :: Event t (Event t Msg) <- dyn (fmap (showCell pos) dCell)
     ev3 :: Behavior t (Event t Msg) <- hold never ev2
     let ev4 :: Event t Msg = switch ev3
@@ -156,18 +133,16 @@ updateBoard msg oldBoard =
 
 showBoard2 :: forall t m. MonadWidget t m => m ()
 showBoard2 = do 
-    gen <- liftIO getStdGen
     rec 
         let indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
-            (initialBoard, _)  = runRand (initBoard indices) gen
+            initialBoard  = initBoard indices
         board <- foldDyn updateBoard initialBoard (leftmost ev)
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ forM indices $ showCell2 board
     return ()
 
 showBoard :: MonadWidget t m => m ()
 showBoard = do
-    gen <- liftIO getStdGen
-    let (initial, _)  = runRand mkBoard gen
+    let initial  = mkBoard 
     rec 
         let pick = switch $ (leftmost . elems) <$> current ev
             pickWithCells = attachPromptlyDynWith (,) cm pick
