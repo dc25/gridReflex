@@ -14,7 +14,7 @@ import Data.Traversable (forM)
 type Pos = (Int, Int)
 type Board = Map Pos Bool
 
-data Msg = RightPick Pos 
+data Msg = Pick Pos 
 
 w :: Int
 w =  20
@@ -66,17 +66,12 @@ showFlag pos = do
 
     return [fEl]
 
-mouseEv :: Reflex t => Pos -> El t -> [Event t Msg]
-mouseEv pos el = 
-    let r_rEv = RightPick pos <$ domEvent Click el
-    in [r_rEv]
-
 showCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg)
 showCell pos flagged = 
     fmap snd $ elSvgns "g"  (constDyn $ groupAttrs pos) $ do
         (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs flagged) $ return ()
-        dEl <- if flagged then showFlag pos else return []
-        return $ leftmost $ concatMap (mouseEv pos) (rEl : dEl)
+        if flagged then showFlag pos else return []
+        return $ Pick pos <$ domEvent Click rEl
 
 showAndReturnCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg, Bool)
 showAndReturnCell pos c = do
@@ -84,7 +79,7 @@ showAndReturnCell pos c = do
     return (ev,c)
 
 fromPick :: Msg -> Board ->[(Pos, Maybe Bool)]
-fromPick (RightPick pos ) board = 
+fromPick (Pick pos ) board = 
     let flagged = board ! pos
     in [(pos, Just $ not flagged )]
 
@@ -135,7 +130,7 @@ showBoard = do
     return ()
 
 main :: IO ()
-main = mainWidget showBoard
+main = mainWidget showBoard2
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
