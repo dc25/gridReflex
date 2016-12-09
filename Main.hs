@@ -10,7 +10,7 @@ import Data.Traversable (forM)
 type Pos = (Int, Int)
 type Board = Map Pos Bool
 
-data Msg = Pick Pos 
+data Msg = Pick Pos Bool
 
 w :: Int
 w =  20
@@ -63,20 +63,13 @@ showCell pos flagged =
     fmap snd $ elSvgns "g"  (constDyn $ groupAttrs pos) $ do
         (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs flagged) $ return ()
         if flagged then showFlag pos else return []
-        return $ Pick pos <$ domEvent Click rEl
+        return $ Pick pos flagged <$ domEvent Click rEl
 
-showAndReturnCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg, Bool)
-showAndReturnCell pos c = do
-    ev <- showCell pos c
-    return (ev,c)
+fromPick :: Msg -> [(Pos, Maybe Bool)]
+fromPick (Pick pos flagged) = [(pos, Just $ not flagged )]
 
-fromPick :: Msg -> Board ->[(Pos, Maybe Bool)]
-fromPick (Pick pos ) board = 
-    let flagged = board ! pos
-    in [(pos, Just $ not flagged )]
-
-reactToPick :: (Board,Msg) -> Map Pos (Maybe Bool)
-reactToPick (b,c) = fromList $ fromPick c b
+reactToPick :: Msg -> Map Pos (Maybe Bool)
+reactToPick c = fromList $ fromPick c 
 
 boardAttrs :: Map Text Text
 boardAttrs = fromList 
@@ -95,7 +88,7 @@ showCell2 dBoard pos = do
 
 updateBoard :: Msg -> Board -> Board
 updateBoard msg oldBoard = 
-        let updates = fromPick msg oldBoard 
+        let updates = fromPick msg 
             updater b (p, Just c) = insert p c b
         in foldl updater oldBoard updates
 
@@ -112,17 +105,13 @@ showBoard = do
     let initial = initBoard [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
     rec 
         let pick = switch $ (leftmost . elems) <$> current ev
-            pickWithCells = attachPromptlyDynWith (,) cm pick
-            updateEv = fmap reactToPick pickWithCells
-            eventAndCellMap = listHoldWithKey initial updateEv showAndReturnCell 
-            eventMap = fmap (fmap (fmap fst)) eventAndCellMap
+            updateEv = fmap reactToPick pick
+            eventMap = listHoldWithKey initial updateEv showCell
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) eventMap
-        let cellMap = fmap (fmap (fmap snd)) eventAndCellMap
-        cm <- cellMap 
     return ()
 
 main :: IO ()
-main = mainWidget showBoard2
+main = mainWidget showBoard
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
