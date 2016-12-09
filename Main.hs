@@ -47,22 +47,10 @@ groupAttrs (x,y) =
                )
              ] 
 
-showFlag :: MonadWidget t m => Pos -> m [El t]
-showFlag pos = do
-    let flagAttrs = 
-            fromList [ ( "points", "0.20,0.40 0.70,0.55 0.70,0.25" )
-                     , ( "style",        "fill:red")
-                     ] 
-
-    (fEl,_) <- elSvgns "polygon" (constDyn flagAttrs ) $ return ()
-
-    return [fEl]
-
 showCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg)
 showCell pos flagged = 
     fmap snd $ elSvgns "g"  (constDyn $ groupAttrs pos) $ do
         (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs flagged) $ return ()
-        if flagged then showFlag pos else return []
         return $ Pick pos flagged <$ domEvent Click rEl
 
 fromPick :: Msg -> [(Pos, Maybe Bool)]
@@ -111,7 +99,7 @@ showBoard = do
     return ()
 
 main :: IO ()
-main = mainWidget showBoard
+main = mainWidget showBoard2
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
