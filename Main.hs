@@ -11,10 +11,8 @@ import Data.Text (Text, pack)
 import Data.Functor.Misc (dmapToMap, mapWithFunctorToDMap)
 import Data.Traversable (forM)
 
-type Cell = Bool
-
 type Pos = (Int, Int)
-type Board = Map Pos Cell
+type Board = Map Pos Bool
 
 data Msg = RightPick Pos 
 
@@ -27,7 +25,7 @@ h = 10
 cellSize :: Int
 cellSize = 20
 
-mkCell :: Cell
+mkCell :: Bool
 mkCell = False 
 
 initBoard :: [Pos] -> Board
@@ -40,10 +38,10 @@ mkBoard =
     let positions = [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
     in initBoard positions
 
-getColor :: Cell -> String
+getColor :: Bool -> String
 getColor flagged = if flagged then "#909090" else "#AAAAAA"
 
-cellAttrs :: Cell -> Map Text Text
+cellAttrs :: Bool -> Map Text Text
 cellAttrs cell = 
     let size = 0.9
         placement = 0.5 - (size/2.0)
@@ -63,7 +61,7 @@ groupAttrs (x,y) =
                )
              ] 
 
-showSquare :: MonadWidget t m => Cell -> m [El t]
+showSquare :: MonadWidget t m => Bool -> m [El t]
 showSquare c = do
     (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs c) $ return ()
     return [rEl]
@@ -79,7 +77,7 @@ showFlag pos = do
 
     return [fEl]
 
-showCellDetail :: MonadWidget t m => Pos -> Cell -> m [El t]
+showCellDetail :: MonadWidget t m => Pos -> Bool -> m [El t]
 showCellDetail pos flagged  = 
     case (  flagged ) of
          (  True ) -> showFlag pos 
@@ -90,24 +88,24 @@ mouseEv pos el =
     let r_rEv = RightPick pos <$ domEvent Click el
     in [r_rEv]
 
-showCell :: MonadWidget t m => Pos -> Cell -> m (Event t Msg)
+showCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg)
 showCell pos c = 
     fmap snd $ elSvgns "g"  (constDyn $ groupAttrs pos) $ do
         rEl <- showSquare c
         dEl <- showCellDetail pos c 
         return $ leftmost $ concatMap (mouseEv pos) (rEl ++ dEl)
 
-showAndReturnCell :: MonadWidget t m => Pos -> Cell -> m (Event t Msg, Cell)
+showAndReturnCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg, Bool)
 showAndReturnCell pos c = do
     ev <- showCell pos c
     return (ev,c)
 
-fromPick :: Msg -> Board ->[(Pos, Maybe Cell)]
+fromPick :: Msg -> Board ->[(Pos, Maybe Bool)]
 fromPick (RightPick pos ) board = 
     let flagged = board ! pos
     in [(pos, Just $ not flagged )]
 
-reactToPick :: (Board,Msg) -> Map Pos (Maybe Cell)
+reactToPick :: (Board,Msg) -> Map Pos (Maybe Bool)
 reactToPick (b,c) = fromList $ fromPick c b
 
 boardAttrs :: Map Text Text
@@ -117,7 +115,7 @@ boardAttrs = fromList
                  , ("style" , "border:solid; margin:8em")
                  ]
 
-showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Cell) -> Pos -> m (Event t Msg)
+showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Bool) -> Pos -> m (Event t Msg)
 showCell2 dBoard pos = do
     let dCell = fmap (findWithDefault False pos) dBoard
     ev2 :: Event t (Event t Msg) <- dyn (fmap (showCell pos) dCell)
