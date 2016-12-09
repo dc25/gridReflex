@@ -22,21 +22,15 @@ w =  20
 h :: Int
 h = 10
 
+indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
+
 cellSize :: Int
 cellSize = 20
 
-mkCell :: Bool
-mkCell = False 
-
 initBoard :: [Pos] -> Board
 initBoard positions = 
-    let cells = repeat mkCell
+    let cells = repeat False
     in fromList (zip positions cells)
-
-mkBoard :: Board
-mkBoard = 
-    let positions = [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
-    in initBoard positions
 
 getColor :: Bool -> String
 getColor flagged = if flagged then "#909090" else "#AAAAAA"
@@ -61,11 +55,6 @@ groupAttrs (x,y) =
                )
              ] 
 
-showSquare :: MonadWidget t m => Bool -> m [El t]
-showSquare c = do
-    (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs c) $ return ()
-    return [rEl]
-
 showFlag :: MonadWidget t m => Pos -> m [El t]
 showFlag pos = do
     let flagAttrs = 
@@ -77,23 +66,17 @@ showFlag pos = do
 
     return [fEl]
 
-showCellDetail :: MonadWidget t m => Pos -> Bool -> m [El t]
-showCellDetail pos flagged  = 
-    case (  flagged ) of
-         (  True ) -> showFlag pos 
-         (      _ ) -> return []
-
 mouseEv :: Reflex t => Pos -> El t -> [Event t Msg]
 mouseEv pos el = 
     let r_rEv = RightPick pos <$ domEvent Click el
     in [r_rEv]
 
 showCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg)
-showCell pos c = 
+showCell pos flagged = 
     fmap snd $ elSvgns "g"  (constDyn $ groupAttrs pos) $ do
-        rEl <- showSquare c
-        dEl <- showCellDetail pos c 
-        return $ leftmost $ concatMap (mouseEv pos) (rEl ++ dEl)
+        (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs flagged) $ return ()
+        dEl <- if flagged then showFlag pos else return []
+        return $ leftmost $ concatMap (mouseEv pos) (rEl : dEl)
 
 showAndReturnCell :: MonadWidget t m => Pos -> Bool -> m (Event t Msg, Bool)
 showAndReturnCell pos c = do
@@ -132,15 +115,14 @@ updateBoard msg oldBoard =
 showBoard2 :: forall t m. MonadWidget t m => m ()
 showBoard2 = do 
     rec 
-        let indices = [(x,y) | x <- [0..w-1], y <- [0..h-1]] 
-            initialBoard  = initBoard indices
-        board <- foldDyn updateBoard initialBoard (leftmost ev)
+        let  initial  = initBoard indices
+        board <- foldDyn updateBoard initial (leftmost ev)
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ forM indices $ showCell2 board
     return ()
 
 showBoard :: MonadWidget t m => m ()
 showBoard = do
-    let initial  = mkBoard 
+    let initial = initBoard [(x,y) | x <- [0..w-1], y <- [0..h-1]]   
     rec 
         let pick = switch $ (leftmost . elems) <$> current ev
             pickWithCells = attachPromptlyDynWith (,) cm pick
