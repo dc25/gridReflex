@@ -20,7 +20,7 @@ data Cell = Cell { mined :: Bool
 type Pos = (Int, Int)
 type Board = Map Pos Cell
 
-data Msg = LeftPick Pos | RightPick Pos 
+data Msg = RightPick Pos 
 
 w :: Int
 w =  20
@@ -62,17 +62,6 @@ cellAttrs cell =
                 , ("oncontextmenu", "return false;")
                 ] 
 
-textAttrs :: Map Text Text
-textAttrs = 
-    fromList [ ("x",             "0.5")
-             , ("y",             "0.6")
-             , ("font-size",     "1.0" )
-             , ("fill",          "blue" )
-             , ("alignment-baseline", "middle" )
-             , ("text-anchor",        "middle" )
-             , ("oncontextmenu",      "return false;")
-             ] 
-
 groupAttrs :: Pos -> Map Text Text
 groupAttrs (x,y) = 
     fromList [ ("transform", 
@@ -85,29 +74,6 @@ showSquare :: MonadWidget t m => Cell -> m [El t]
 showSquare c = do
     (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs c) $ return ()
     return [rEl]
-
-showMine :: MonadWidget t m => Pos -> m [El t]
-showMine pos = do
-    let mineAttrs = 
-            fromList [ ( "cx", "0.45" )
-                     , ( "cy", "0.55" )
-                     , ( "r",  "0.3" )
-                     , ( "style",        "fill:brown")
-                     , ("oncontextmenu", "return false;")
-                     ] 
-
-    (cEl,_) <- elSvgns "circle" (constDyn mineAttrs ) $ return ()
-
-    let stemAttrs = 
-            fromList [ ( "points", "0.65,0.15 0.85,0.35 0.65,0.55 0.45,0.35 " )
-                     , ( "style",        "fill:brown")
-                     , ("oncontextmenu", "return false;")
-                     ] 
-
-    (sEl,_) <- elSvgns "polygon" (constDyn stemAttrs ) $ return ()
-    (fEl,_) <- elSvgns "circle" (constDyn mineAttrs ) $ return ()
-
-    return [cEl, sEl]
 
 showFlag :: MonadWidget t m => Pos -> m [El t]
 showFlag pos = do
@@ -133,24 +99,16 @@ showFlag pos = do
 
     return [fEl, pEl]
 
-showText :: MonadWidget t m => Int -> m [El t]
-showText count = do
-    elSvgns "text" (constDyn textAttrs) $ text $ pack $ show count
-    return []
-
 showCellDetail :: MonadWidget t m => Pos -> Cell -> m [El t]
 showCellDetail pos c@(Cell mined exposed flagged mines) = 
     case (  mined, exposed, flagged, 0 == mines) of
          (      _,       _,    True,     _) -> showFlag pos 
-         (   True,    True,       _,     _) -> showMine pos 
-         (      _,    True,       _, False) -> showText mines
          (      _,       _,       _,     _) -> return []
 
 mouseEv :: Reflex t => Pos -> El t -> [Event t Msg]
 mouseEv pos el = 
     let r_rEv = RightPick pos <$ domEvent Contextmenu el
-        l_rEv = LeftPick  pos <$ domEvent Click       el
-    in [l_rEv, r_rEv]
+    in [r_rEv]
 
 showCell :: MonadWidget t m => Pos -> Cell -> m (Event t Msg)
 showCell pos c = 
@@ -164,46 +122,7 @@ showAndReturnCell pos c = do
     ev <- showCell pos c
     return (ev,c)
 
-adjacents :: Pos -> [Pos]
-adjacents (x,y) = 
-    [(xx,yy) | xx <- [x-1..x+1]
-             , yy <- [y-1..y+1]
-             , (xx,yy) /= (x,y)
-             , xx >= 0, yy >= 0
-             , xx < w, yy < h]
-
-mineCount :: Board -> Pos -> Int
-mineCount board pos  = 
-    length $ filter mined $ (board !) <$> adjacents pos
-
-fromLeftPickM :: Pos -> State Board [(Pos, Maybe Cell)]
-fromLeftPickM pos = 
-    state $
-        \board ->
-            let indices = adjacents pos
-                count = length $ filter mined $ fmap (board !) indices
-                c = board ! pos
-                
-                updatedCell = if flagged c -- can't expose a flagged cell.
-                              then c
-                              else c {exposed=True, mines = count} 
-
-                updatedBoard = insert pos updatedCell board 
-
-                checkList = (if exposed c || flagged c || mined c || count /= 0 
-                             then [] 
-                             else indices 
-                             )
-
-                neighborUpdater = mapM fromLeftPickM checkList
-                (updatedNeighbors, updatedNeighborsBoard) = runState neighborUpdater updatedBoard
-            in ((pos, Just updatedCell) : concat updatedNeighbors, updatedNeighborsBoard)
-
 fromPick :: Msg -> Board ->[(Pos, Maybe Cell)]
-fromPick (LeftPick p) board = 
-    let (nc,_) = runState (fromLeftPickM p) board
-    in nc
-
 fromPick (RightPick pos ) board = 
     let c = board ! pos
     in if exposed c
@@ -261,7 +180,7 @@ showBoard = do
     return ()
 
 main :: IO ()
-main = mainWidget showBoard
+main = mainWidget showBoard2
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
