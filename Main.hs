@@ -72,10 +72,8 @@ boardAttrs = fromList
 showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Bool) -> Pos -> m (Event t Msg)
 showCell2 dBoard pos = do
     let dCell = fmap (findWithDefault False pos) dBoard
-    ev2 :: Event t (Event t Msg) <- dyn (fmap (showCell pos) dCell)
-    ev3 :: Behavior t (Event t Msg) <- hold never ev2
-    let ev4 :: Event t Msg = switch ev3
-    return ev4
+    bh <- hold never =<< dyn (fmap (showCell pos) dCell)
+    return $ switch bh
 
 updateBoard :: Msg -> Board -> Board
 updateBoard msg oldBoard = 
@@ -87,7 +85,8 @@ showBoard2 :: forall t m. MonadWidget t m => m ()
 showBoard2 = do 
     rec 
         board <- foldDyn updateBoard initialBoard (leftmost ev)
-        (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ forM indices $ showCell2 board
+        (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ 
+                       forM indices $ showCell2 board
     return ()
 
 showBoard :: MonadWidget t m => m ()
