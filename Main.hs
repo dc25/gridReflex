@@ -11,7 +11,7 @@ import Data.Text (Text, pack)
 import Data.Functor.Misc (dmapToMap, mapWithFunctorToDMap)
 import Data.Traversable (forM)
 
-data Cell = Cell { flagged :: Bool } 
+type Cell = Bool
 
 type Pos = (Int, Int)
 type Board = Map Pos Cell
@@ -28,7 +28,7 @@ cellSize :: Int
 cellSize = 20
 
 mkCell :: Cell
-mkCell = Cell False 
+mkCell = False 
 
 initBoard :: [Pos] -> Board
 initBoard positions = 
@@ -41,7 +41,7 @@ mkBoard =
     in initBoard positions
 
 getColor :: Cell -> String
-getColor (Cell flagged) = if flagged then "#909090" else "#AAAAAA"
+getColor flagged = if flagged then "#909090" else "#AAAAAA"
 
 cellAttrs :: Cell -> Map Text Text
 cellAttrs cell = 
@@ -80,7 +80,7 @@ showFlag pos = do
     return [fEl]
 
 showCellDetail :: MonadWidget t m => Pos -> Cell -> m [El t]
-showCellDetail pos c@(Cell flagged ) = 
+showCellDetail pos flagged  = 
     case (  flagged ) of
          (  True ) -> showFlag pos 
          (      _ ) -> return []
@@ -104,8 +104,8 @@ showAndReturnCell pos c = do
 
 fromPick :: Msg -> Board ->[(Pos, Maybe Cell)]
 fromPick (RightPick pos ) board = 
-    let c = board ! pos
-    in [(pos, Just c {flagged=not $ flagged c})]
+    let flagged = board ! pos
+    in [(pos, Just $ not flagged )]
 
 reactToPick :: (Board,Msg) -> Map Pos (Maybe Cell)
 reactToPick (b,c) = fromList $ fromPick c b
@@ -119,7 +119,7 @@ boardAttrs = fromList
 
 showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Cell) -> Pos -> m (Event t Msg)
 showCell2 dBoard pos = do
-    let dCell = fmap (findWithDefault (Cell False ) pos) dBoard
+    let dCell = fmap (findWithDefault False pos) dBoard
     ev2 :: Event t (Event t Msg) <- dyn (fmap (showCell pos) dCell)
     ev3 :: Behavior t (Event t Msg) <- hold never ev2
     let ev4 :: Event t Msg = switch ev3
@@ -155,7 +155,7 @@ showBoard = do
     return ()
 
 main :: IO ()
-main = mainWidget showBoard2
+main = mainWidget showBoard
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
