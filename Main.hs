@@ -54,19 +54,6 @@ showCell pos flagged =
         (rEl,_) <- elSvgns "rect" (constDyn $ cellAttrs flagged) $ return ()
         return $ Pick pos flagged <$ domEvent Click rEl
 
-fromPick :: Msg -> [(Pos, Maybe Bool)]
-fromPick (Pick pos flagged) = [(pos, Just $ not flagged )]
-
-reactToPick :: Msg -> Map Pos (Maybe Bool)
-reactToPick c = fromList $ fromPick c 
-
-boardAttrs :: Map Text Text
-boardAttrs = fromList 
-                 [ ("width" , pack $ show $ w * cellSize)
-                 , ("height", pack $ show $ h * cellSize)
-                 , ("style" , "border:solid; margin:8em")
-                 ]
-
 showCell2 :: forall t m. MonadWidget t m => Dynamic t (Map Pos Bool) -> Pos -> m (Event t Msg)
 showCell2 dBoard pos = do
     let dFlagged = fmap (findWithDefault False pos) dBoard
@@ -89,6 +76,9 @@ showCell2c dBoard pos = do
     flagged <- sample $ current dFlagged
     return $ Pick pos flagged <$ domEvent Click el 
 
+fromPick :: Msg -> [(Pos, Maybe Bool)]
+fromPick (Pick pos flagged) = [(pos, Just $ not flagged )]
+
 updateBoard :: Msg -> Board -> Board
 updateBoard msg oldBoard = 
     let updates = fromPick msg
@@ -101,15 +91,25 @@ autoPickButton = do
     m_bEv <- el "div" $ button "Autopick!!!" 
     zipListWithEvent const autoPicks m_bEv
 
+boardAttrs :: Map Text Text
+boardAttrs = fromList 
+                 [ ("width" , pack $ show $ w * cellSize)
+                 , ("height", pack $ show $ h * cellSize)
+                 , ("style" , "border:solid; margin:8em")
+                 ]
+
 showBoard2 :: forall t m. MonadWidget t m => m ()
 showBoard2 = do 
-    -- pick <- autoPickButton
+    -- pick <- autoPickButton       -- use this...
     rec 
-        let pick = leftmost ev
+        let pick = leftmost ev      -- ... or this but not both
         board <- foldDyn updateBoard initialBoard pick
         (_, ev) <- elSvgns "svg" (constDyn boardAttrs) $ 
                        forM indices $ showCell2c board
     return ()
+
+reactToPick :: Msg -> Map Pos (Maybe Bool)
+reactToPick c = fromList $ fromPick c 
 
 showBoard :: MonadWidget t m => m ()
 showBoard = do
@@ -124,8 +124,8 @@ showBoard = do
 
 main :: IO ()
 main = mainWidget 
-           showBoard2
-           -- showBoard
+           showBoard2     -- use this 
+           -- showBoard   -- or this 
 
 elSvgns :: MonadWidget t m => Text -> Dynamic t (Map Text Text) -> m a -> m (El t, a)
 elSvgns = elDynAttrNS' (Just "http://www.w3.org/2000/svg")
